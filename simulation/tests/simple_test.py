@@ -5,6 +5,8 @@ from replifactory_simulation.simulation_factory import create_simulated_device
 from replifactory_core.interfaces import DeviceError, StirrerSpeed
 
 
+
+
 @pytest.fixture
 def device():
     return create_simulated_device()

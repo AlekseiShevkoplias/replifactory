@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import time
 from typing import Dict, Optional, Tuple
 
+import threading
 import numpy as np
 
 from replifactory_core.interfaces import (
@@ -22,7 +23,7 @@ class SimulatedPump(PumpInterface):
     def __post_init__(self):
         self._is_pumping = False
         self._volume_pumped = 0.0
-        self._lock = threading.Lock()  # Add lock for thread safety
+        self._lock = threading.Lock()  # Lock for thread safety
     
     def pump(self, volume_ml: float) -> None:
         if not self._lock.acquire(blocking=False):  # Try to acquire lock
