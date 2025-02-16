@@ -141,6 +141,14 @@ class BaseDevice(ExperimentDeviceInterface):
             raise ValueError(f"Total volume {total_volume} exceeds maximum {self.config.max_volume_ml}")
             
         try:
+            # Calculate new drug concentration
+            current_volume = 12.0  # TODO: Get from config
+            total_volume = current_volume + media_volume + drug_volume
+            
+            if hasattr(self._od_sensor, 'update_drug_concentration'):
+                new_concentration = (drug_volume / total_volume) * 100.0  # Assuming 100x stock
+                self._od_sensor.update_drug_concentration(vial, new_concentration)
+            
             # Remove waste volume
             self._valves.open(vial)
             self._pumps[4].pump(total_volume)  # Waste pump

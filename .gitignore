@@ -173,3 +173,6 @@ cython_debug/
 
 # Project-specific
 misc/
+old_version/
+simulation_logs/
+context.txt

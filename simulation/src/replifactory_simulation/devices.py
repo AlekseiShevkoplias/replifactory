@@ -12,7 +12,7 @@ from replifactory_core.interfaces import (
 )
 from replifactory_core.parameters import ODParameters
 
-from .growth_model import GrowthModel
+from .growth_model import GrowthModel, GrowthModelParameters
 
 
 @dataclass
@@ -104,29 +104,49 @@ class SimulatedStirrer(StirrerInterface):
 
 
 class SimulatedODSensor(ODSensorInterface):
-    def __init__(self):
-        self._growth_models = {i: GrowthModel() for i in range(1, 8)}
-        self._blanks = {i: 40.0 for i in range(1, 8)}  # mV
+    """Simulates bacterial growth and OD measurements."""
+    
+    def __init__(self, model_params: Optional[GrowthModelParameters] = None):
+        # Initialize growth models for each vial
+        self._growth_models = {
+            i: GrowthModel(parameters=model_params)
+            for i in range(1, 8)
+        }
+        
+        # Blank values for each vial
+        self.blank_values = {i: 1000.0 for i in range(1, 8)}  # mV
+        
+    def measure_blank(self, vial: int) -> float:
+        """Measure blank (empty vial) signal."""
+        if not 1 <= vial <= 7:
+            raise ValueError(f"Invalid vial number: {vial}")
+            
+        # Add some noise to the blank measurement
+        blank = self.blank_values[vial] * (1 + 0.005 * np.random.randn())
+        time.sleep(0.1)  # Simulate measurement time
+        return blank
         
     def measure_od(self, vial: int, parameters: Optional[ODParameters] = None) -> Tuple[float, float]:
         if not 1 <= vial <= 7:
             raise ValueError(f"Invalid vial number: {vial}")
             
+        # Get current OD from growth model
         model = self._growth_models[vial]
-        od = model.od
         
-        # Convert OD to signal with some noise
-        signal_mv = self._blanks[vial] * np.exp(-od)
-        signal_mv *= (1 + 0.02 * (2 * np.random.random() - 1))
+        # Add measurement noise
+        measured_od = model.od * (1 + 0.02 * np.random.randn())
+        signal = 1000 * np.exp(-measured_od) * (1 + 0.01 * np.random.randn())
         
-        time.sleep(0.1)  # Simulate measurement
-        return od, signal_mv
-    
-    def measure_blank(self, vial: int) -> float:
+        time.sleep(0.1)  # Simulate measurement time
+        return measured_od, signal
+        
+    def update_drug_concentration(self, vial: int, concentration: float):
+        """Update drug concentration after dilution."""
         if not 1 <= vial <= 7:
             raise ValueError(f"Invalid vial number: {vial}")
-        time.sleep(0.1)
-        return self._blanks[vial]
+            
+        model = self._growth_models[vial]
+        model.drug_concentration = concentration
 
 
 class SimulatedThermometer(ThermometerInterface):
