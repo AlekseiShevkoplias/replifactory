@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Replifactory Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@5.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: "Avenir", Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .nav-drawer {
+            width: 250px;
+            background: #1E1E1E;
+            color: white;
+            padding: 20px;
+            transition: width 0.3s;
+        }
+        
+        .nav-drawer.collapsed {
+            width: 64px;
+        }
+        
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        i se
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-item.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .nav-item i {
+            margin-right: 12px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            height: 600px;
+            width: 100%;
+        }
+        
+        .status-bar {
+            background: #333;
+            color: white;
+            padding: 10px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Add vial card styles */
+        .vials-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .vial-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .vial-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .vial-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .measurement {
+            margin: 5px 0;
+            color: #34495e;
+        }
+
+        /* Pump animation styles */
+        .pumps-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            padding: 40px;
+            margin-top: 20px;
+        }
+
+        .pump {
+            text-align: center;
+        }
+
+        .pump-body {
+            width: 100px;
+            height: 200px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #999;
+        }
+
+        .pump-label {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .pump-piston {
+            width: 80px;
+            height: 40px;
+            background: #666;
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            transition: transform 0.5s ease-in-out;
+            border-radius: 5px;
+        }
+
+        .pump-status {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .pump.active .pump-piston {
+            animation: pump 1s infinite;
+        }
+
+        @keyframes pump {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-140px); }
+            100% { transform: translateY(0); }
+        }
+
+        /* Valve styles */
+        .valves-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .valve {
+            text-align: center;
+        }
+
+        .valve-body {
+            width: 80px;
+            height: 80px;
+            background: #e0e0e0;
+            border-radius: 50%;
+            position: relative;
+            border: 2px solid #999;
+            overflow: hidden;
+        }
+
+        .valve-label {
+            position: absolute;
+            top: 5px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .valve-handle {
+            width: 8px;
+            height: 40px;
+            background: #666;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(0deg);
+            transform-origin: center;
+            transition: transform 0.3s ease-in-out;
+            border-radius: 4px;
+        }
+
+        .valve-status {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .valve.open .valve-handle {
+            transform: translate(-50%, -50%) rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="nav-drawer" id="nav-drawer">
+            <div class="nav-item" onclick="selectTab('experiment')" id="tab-experiment">
+                <i class="mdi mdi-flask"></i>
+                <span>Experiment</span>
+            </div>
+            <div class="nav-item" onclick="selectTab('animation')" id="tab-animation">
+                <i class="mdi mdi-pump"></i>
+                <span>Animation</span>
+            </div>
+            <div class="nav-item" onclick="selectTab('prediction')" id="tab-prediction">
+                <i class="mdi mdi-chart-bell-curve-cumulative"></i>
+                <span>Prediction</span>
+            </div>
+            <div class="nav-item" onclick="selectTab('device')" id="tab-device">
+                <i class="mdi mdi-robot-industrial"></i>
+                <span>Device Control</span>
+            </div>
+            <div class="nav-item" onclick="selectTab('remote')" id="tab-remote">
+                <i class="mdi mdi-remote-desktop"></i>
+                <span>Remote</span>
+            </div>
+            <div class="nav-item" onclick="selectTab('docs')" id="tab-docs">
+                <i class="mdi mdi-book-open-variant"></i>
+                <span>Docs</span>
+            </div>
+            <div class="nav-item" onclick="selectTab('status')" id="tab-status">
+                <i class="mdi mdi-monitor-eye"></i>
+                <span>Status</span>
+            </div>
+            <div class="nav-item" onclick="selectTab('logs')" id="tab-logs">
+                <i class="mdi mdi-file-document-alert-outline"></i>
+                <span>Logs</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div id="experiment-tab" class="tab-content">
+                <div class="vials-container" id="vials"></div>
+                <div class="chart-container">
+                    <canvas id="odChart"></canvas>
+                </div>
+                <div id="no-data" style="text-align: center; color: #666;"></div>
+            </div>
+            <div id="animation-tab" class="tab-content" style="display: none;">
+                <div class="pumps-container">
+                    <div class="pump" id="pump-1">
+                        <div class="pump-body">
+                            <div class="pump-label">Pump 1</div>
+                            <div class="pump-piston"></div>
+                        </div>
+                        <div class="pump-status">Idle</div>
+                    </div>
+                    <div class="pump" id="pump-2">
+                        <div class="pump-body">
+                            <div class="pump-label">Pump 2</div>
+                            <div class="pump-piston"></div>
+                        </div>
+                        <div class="pump-status">Idle</div>
+                    </div>
+                </div>
+                <div class="valves-container">
+                    <div class="valve" id="valve-1">
+                        <div class="valve-body">
+                            <div class="valve-label">Valve 1</div>
+                            <div class="valve-handle"></div>
+                        </div>
+                        <div class="valve-status">Closed</div>
+                    </div>
+                    <div class="valve" id="valve-2">
+                        <div class="valve-body">
+                            <div class="valve-label">Valve 2</div>
+                            <div class="valve-handle"></div>
+                        </div>
+                        <div class="valve-status">Closed</div>
+                    </div>
+                </div>
+            </div>
+            <div id="device-tab" class="tab-content" style="display: none;">
+                <div style="max-width: 600px; margin: 20px auto; padding: 20px;">
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h2 style="margin-bottom: 20px; color: #2c3e50;">Pump Control</h2>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Select Pump:</label>
+                            <select id="pumpSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                                <option value="1">Pump 1</option>
+                                <option value="2">Pump 2</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Volume (mL):</label>
+                            <input type="number" id="pumpVolume" min="0" step="0.1" value="1.0" 
+                                   style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                        </div>
+                        <button onclick="activatePump()" 
+                                style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%;">
+                            Start Pump
+                        </button>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h2 style="margin-bottom: 20px; color: #2c3e50;">Valve Control</h2>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Select Valve:</label>
+                            <select id="valveSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                                <option value="1">Valve 1</option>
+                                <option value="2">Valve 2</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">State:</label>
+                            <select id="valveState" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                                <option value="open">Open</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                        <button onclick="setValveState()" 
+                                style="background: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%;">
+                            Set Valve State
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Other tab contents will be added here -->
+        </div>
+    </div>
+    
+    <div class="status-bar">
+        <div id="connection-status">Connecting to server...</div>
+        <div id="experiment-status"></div>
+    </div>
+
+    <!-- Add tab handling script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tab handling
+            function selectTab(tabName) {
+                // Remove active class from all tabs
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Add active class to selected tab
+                const selectedTab = document.getElementById(`tab-${tabName}`);
+                if (selectedTab) {
+                    selectedTab.classList.add('active');
+                }
+                
+                // Hide all tab contents
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    if (content) {
+                        content.style.display = 'none';
+                    }
+                });
+                
+                // Show selected tab content
+                const selectedContent = document.getElementById(`${tabName}-tab`);
+                if (selectedContent) {
+                    selectedContent.style.display = 'block';
+                }
+            }
+    
+            // Make selectTab available globally
+            window.selectTab = selectTab;
+            
+            // Initialize Socket.IO connection
+            const socket = io('http://localhost:5000', {
+                transports: ['websocket', 'polling'],
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                reconnectionAttempts: 10
+            });
+
+            // Get DOM elements
+            const statusElement = document.getElementById('connection-status');
+            const noDataElement = document.getElementById('no-data');
+            
+            // Initialize data structures
+            let vialData = {};
+            let timeSeriesData = {};
+            let odChart;
+
+            // Initialize Chart.js
+            function initializeChart() {
+                console.log('Initializing chart...');
+                if (odChart) {
+                    console.log('Destroying existing chart');
+                    odChart.destroy();
+                }
+                const ctx = document.getElementById('odChart').getContext('2d');
+                odChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        elements: {
+                            line: { tension: 0.1 },
+                            point: { radius: 3 }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'OD Measurements Over Time'
+                            },
+                            legend: { position: 'top' }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'second',
+                                    displayFormats: { second: 'HH:mm:ss' }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Time'
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: 'OD'
+                                },
+                                ticks: { 
+                                    precision: 3,
+                                    stepSize: 0.001
+                                }
+                            }
+                        }
+                    }
+                });
+                timeSeriesData = {};
+                console.log('Chart initialized');
+            }
+
+            // Function to update chart ranges
+            function updateChartRanges() {
+                if (!odChart || Object.keys(timeSeriesData).length === 0) return;
+
+                // Get all OD values
+                const allODs = Object.values(timeSeriesData)
+                    .flat()
+                    .map(point => point.y);
+
+                // Calculate min and max with padding
+                const minOD = Math.min(...allODs);
+                const maxOD = Math.max(...allODs);
+                const range = maxOD - minOD;
+                const padding = Math.max(range * 0.1, 0.001); // Ensure minimum padding
+
+                // Update Y axis with minimum range
+                const yMin = Math.max(0, minOD - padding);
+                const yMax = maxOD + padding;
+                
+                // Ensure minimum range of 0.1 if values are very small
+                const minRange = 0.1;
+                if ((yMax - yMin) < minRange) {
+                    odChart.options.scales.y.max = yMin + minRange;
+                } else {
+                    odChart.options.scales.y.max = yMax;
+                }
+                odChart.options.scales.y.min = yMin;
+
+                // Get all timestamps
+                const allTimes = Object.values(timeSeriesData)
+                    .flat()
+                    .map(point => point.x.getTime());
+
+                // Update X axis with padding
+                const minTime = Math.min(...allTimes);
+                const maxTime = Math.max(...allTimes);
+                const timeRange = maxTime - minTime;
+                const timePadding = timeRange * 0.05;
+                odChart.options.scales.x.min = new Date(minTime - timePadding);
+                odChart.options.scales.x.max = new Date(maxTime + timePadding);
+            }
+
+            // Update vial display
+            function updateVialDisplay(data) {
+                const vialId = data.vial;
+                vialData[vialId] = data;
+
+                // Hide no-data message if we have data
+                noDataElement.style.display = 'none';
+
+                // Update or create vial card
+                let vialElement = document.getElementById(`vial-${vialId}`);
+                if (!vialElement) {
+                    vialElement = document.createElement('div');
+                    vialElement.id = `vial-${vialId}`;
+                    vialElement.className = 'vial-card';
+                    document.getElementById('vials').appendChild(vialElement);
+                }
+
+                vialElement.innerHTML = `
+                    <div class="vial-title">Vial ${vialId}</div>
+                    <div class="measurement">OD: ${data.od.toFixed(3)}</div>
+                    <div class="measurement">Temperature: ${data.temperature.toFixed(1)}°C</div>
+                    ${data.drug_concentration !== null ? `<div class="measurement">Drug Concentration: ${data.drug_concentration.toFixed(2)}</div>` : ''}
+                    ${data.growth_rate !== null ? `<div class="measurement">Growth Rate: ${data.growth_rate.toFixed(3)}/hr</div>` : ''}
+                    <div class="measurement">Last Update: ${new Date(data.timestamp).toLocaleTimeString()}</div>
+                `;
+            }
+
+            // Handle vial updates
+            socket.on('vial_update', (data) => {
+                console.log('Received vial update:', data);
+                const vialId = data.vial;
+
+                if (!odChart) {
+                    console.error('Chart not initialized, initializing now...');
+                    initializeChart();
+                }
+
+                try {
+                    // Initialize dataset if it doesn't exist
+                    if (!timeSeriesData[vialId]) {
+                        console.log(`Initializing dataset for vial ${vialId}`);
+                        timeSeriesData[vialId] = [];
+                        odChart.data.datasets.push({
+                            label: `Vial ${vialId}`,
+                            data: [],
+                            borderColor: `hsl(${vialId * 137.5}, 70%, 50%)`,
+                            backgroundColor: `hsla(${vialId * 137.5}, 70%, 50%, 0.1)`,
+                            fill: false
+                        });
+                    }
+
+                    // Create the new data point
+                    const timestamp = new Date(data.timestamp);
+                    const newPoint = {
+                        x: timestamp,
+                        y: parseFloat(data.od)
+                    };
+                    console.log(`Adding point for vial ${vialId}:`, newPoint);
+
+                    // Add the point to our time series data
+                    timeSeriesData[vialId].push(newPoint);
+
+                    // Keep only the last 100 points to prevent memory issues
+                    if (timeSeriesData[vialId].length > 100) {
+                        timeSeriesData[vialId] = timeSeriesData[vialId].slice(-100);
+                    }
+
+                    // Update the chart dataset
+                    const datasetIndex = odChart.data.datasets.findIndex(ds => ds.label === `Vial ${vialId}`);
+                    if (datasetIndex !== -1) {
+                        odChart.data.datasets[datasetIndex].data = [...timeSeriesData[vialId]];
+                    }
+
+                    // Update axis ranges
+                    updateChartRanges();
+
+                    // Force chart update with animation disabled for better performance
+                    odChart.update('none');
+
+                    // Update vial display
+                    updateVialDisplay(data);
+                } catch (error) {
+                    console.error('Error updating chart:', error);
+                }
+            });
+
+            // Add auto-refresh function that fetches new data
+            async function refreshChart() {
+                if (!odChart) return;
+                
+                try {
+                    // Fetch updated data for each vial
+                    for (let vial = 1; vial <= 2; vial++) {
+                        const plotResponse = await fetch(`http://localhost:5000/plot/${vial}`);
+                        if (plotResponse.ok) {
+                            const plotData = await plotResponse.json();
+                            
+                            // Convert data to chart format
+                            timeSeriesData[vial] = plotData.times.map((time, index) => ({
+                                x: new Date(time),
+                                y: plotData.ods[index]
+                            }));
+
+                            // Update the dataset
+                            const datasetIndex = odChart.data.datasets.findIndex(ds => ds.label === `Vial ${vial}`);
+                            if (datasetIndex !== -1) {
+                                odChart.data.datasets[datasetIndex].data = [...timeSeriesData[vial]];
+                            }
+                        }
+                    }
+
+                    // Update axis ranges and refresh chart
+                    updateChartRanges();
+                    odChart.update('none');
+                    console.log('Chart refreshed with new data');
+                } catch (error) {
+                    console.error('Error refreshing chart:', error);
+                }
+            }
+
+            // Set up auto-refresh interval (every 5 seconds)
+            setInterval(refreshChart, 5000);
+
+            // Socket.IO event handlers
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                statusElement.className = 'status-indicator status-connected';
+                statusElement.textContent = 'Connected to server';
+                getActiveExperiment();
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Connection error:', error);
+                statusElement.className = 'status-indicator status-disconnected';
+                statusElement.textContent = `Connection error: ${error.message}`;
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                statusElement.className = 'status-indicator status-disconnected';
+                statusElement.textContent = 'Disconnected from server';
+            });
+
+            socket.on('reconnecting', (attemptNumber) => {
+                console.log(`Attempting to reconnect (${attemptNumber})`);
+                statusElement.className = 'status-indicator status-connecting';
+                statusElement.textContent = `Reconnecting (attempt ${attemptNumber})...`;
+            });
+
+            // Add function to get active experiment
+            async function getActiveExperiment() {
+                try {
+                    console.log('Fetching active experiment...');
+                    const response = await fetch('http://localhost:5000/experiments/active', {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Active experiment data:', data);
+                    
+                    if (data.experiment) {
+                        console.log('Active experiment:', data.experiment);
+                        noDataElement.textContent = `Monitoring experiment ${data.experiment.id}: ${data.experiment.name}`;
+                        
+                        // Initialize chart once
+                        if (!odChart) {
+                            initializeChart();
+                        }
+                        
+                        // Fetch initial data for each vial
+                        for (let vial = 1; vial <= 2; vial++) {
+                            const plotResponse = await fetch(`http://localhost:5000/plot/${vial}`);
+                            if (plotResponse.ok) {
+                                const plotData = await plotResponse.json();
+                                console.log(`Initial data for vial ${vial}:`, plotData);
+                                
+                                // Convert data to chart format
+                                timeSeriesData[vial] = plotData.times.map((time, index) => ({
+                                    x: new Date(time),
+                                    y: plotData.ods[index]
+                                }));
+                                
+                                // Check if dataset already exists
+                                const existingDatasetIndex = odChart.data.datasets.findIndex(ds => ds.label === `Vial ${vial}`);
+                                if (existingDatasetIndex === -1) {
+                                    // Only add dataset if it doesn't exist
+                                    odChart.data.datasets.push({
+                                        label: `Vial ${vial}`,
+                                        data: timeSeriesData[vial],
+                                        borderColor: `hsl(${vial * 137.5}, 70%, 50%)`,
+                                        backgroundColor: `hsla(${vial * 137.5}, 70%, 50%, 0.1)`,
+                                        fill: false
+                                    });
+                                } else {
+                                    // Update existing dataset
+                                    odChart.data.datasets[existingDatasetIndex].data = timeSeriesData[vial];
+                                }
+                            }
+                        }
+                        
+                        // Update chart with initial data
+                        odChart.update();
+                    } else {
+                        console.log('No active experiment found');
+                        noDataElement.textContent = 'No active experiment';
+                    }
+                } catch (error) {
+                    console.error('Error fetching active experiment:', error);
+                    noDataElement.textContent = 'Error fetching experiment info';
+                    statusElement.className = 'status-indicator status-disconnected';
+                    statusElement.textContent = `Connection error: ${error.message}`;
+                }
+            }
+
+            // Handle pump events
+            socket.on('pump_status', (data) => {
+                const pumpElement = document.getElementById(`pump-${data.pump}`);
+                if (pumpElement) {
+                    const statusElement = pumpElement.querySelector('.pump-status');
+                    
+                    if (data.active) {
+                        pumpElement.classList.add('active');
+                        statusElement.textContent = 'Pumping...';
+                    } else {
+                        pumpElement.classList.remove('active');
+                        statusElement.textContent = 'Idle';
+                    }
+                }
+            });
+
+            // Handle valve events
+            socket.on('valve_status', (data) => {
+                const valveElement = document.getElementById(`valve-${data.valve}`);
+                if (valveElement) {
+                    const statusElement = valveElement.querySelector('.valve-status');
+                    
+                    if (data.open) {
+                        valveElement.classList.add('open');
+                        statusElement.textContent = 'Open';
+                    } else {
+                        valveElement.classList.remove('open');
+                        statusElement.textContent = 'Closed';
+                    }
+                }
+            });
+
+            // Initialize with experiment tab selected
+            selectTab('experiment');
+
+            // Add device control functions
+            async function activatePump() {
+                const pumpId = document.getElementById('pumpSelect').value;
+                const volume = document.getElementById('pumpVolume').value;
+                
+                try {
+                    const response = await fetch('http://localhost:5000/device/pump', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        mode: 'cors',
+                        credentials: 'omit',
+                        body: JSON.stringify({
+                            pump: parseInt(pumpId),
+                            volume: parseFloat(volume)
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    console.log(`Pump activation result:`, result);
+                    alert(`Success: ${result.message}`);
+                } catch (error) {
+                    console.error('Error activating pump:', error);
+                    alert('Error activating pump: ' + error.message);
+                }
+            }
+
+            async function setValveState() {
+                const valveId = document.getElementById('valveSelect').value;
+                const state = document.getElementById('valveState').value;
+                
+                try {
+                    const response = await fetch('http://localhost:5000/device/valve', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        mode: 'cors',
+                        credentials: 'omit',
+                        body: JSON.stringify({
+                            valve: parseInt(valveId),
+                            state: state === 'open'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    console.log(`Valve state change result:`, result);
+                    alert(`Success: ${result.message}`);
+                } catch (error) {
+                    console.error('Error setting valve state:', error);
+                    alert('Error setting valve state: ' + error.message);
+                }
+            }
+
+            // Make functions globally available
+            window.activatePump = activatePump;
+            window.setValveState = setValveState;
+        });
+    </script>
+
+    <!-- Existing scripts -->
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    
+    <!-- Your existing JavaScript code here -->
+</body>
+</html> 
