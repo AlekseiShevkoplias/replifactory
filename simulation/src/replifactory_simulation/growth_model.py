@@ -18,7 +18,7 @@ class GrowthModelParameters:
         adaptation_rate_ic10_ic50_ratio: Controls adaptation vs. drug concentration
     """
     initial_od: float = 0.05
-    doubling_time_mins: float = 20.0
+    doubling_time_mins: float = 2.0
     carrying_capacity: float = 0.9
     mu_min: float = -0.1
     ic50_initial: float = 5.0

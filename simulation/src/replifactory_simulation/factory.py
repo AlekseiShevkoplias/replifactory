@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from replifactory_core.factory import DeviceComponentFactory
 from replifactory_core.interfaces import (
     PumpInterface, ValveInterface, StirrerInterface,
-    ODSensorInterface, ThermometerInterface
+    ODSensorInterface, ThermometerInterface, DeviceEventListener
 )
 from replifactory_core.base_device import BaseDevice, BaseDeviceConfig
 
@@ -16,6 +16,9 @@ from .growth_model import GrowthModelParameters
 class SimulationFactory(DeviceComponentFactory):
     """Factory for creating simulated device components."""
     
+    def __init__(self, event_listener: Optional[DeviceEventListener] = None):
+        self.event_listener = event_listener
+        
     def create_device(
         self, 
         config: BaseDeviceConfig,
@@ -39,11 +42,14 @@ class SimulationFactory(DeviceComponentFactory):
     
     def create_pump(self, pump_number: int) -> PumpInterface:
         """Create simulated pump."""
-        return SimulatedPump(pump_number=pump_number)
+        return SimulatedPump(
+            pump_number=pump_number,
+            event_listener=self.event_listener
+        )
     
     def create_valves(self) -> ValveInterface:
         """Create simulated valve control."""
-        return SimulatedValves()
+        return SimulatedValves(event_listener=self.event_listener)
     
     def create_stirrer(self) -> StirrerInterface:
         """Create simulated stirrer control."""

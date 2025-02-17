@@ -12,11 +12,17 @@ from .devices import (
 
 
 class SimulationFactory(DeviceComponentFactory):
+    def __init__(self, monitor=None):
+        self.monitor = monitor
+
     def create_pump(self, pump_number: int) -> PumpInterface:
-        return SimulatedPump(pump_number=pump_number)
+        return SimulatedPump(
+            pump_number=pump_number,
+            event_listener=self.monitor
+        )
     
     def create_valves(self) -> ValveInterface:
-        return SimulatedValves()
+        return SimulatedValves(event_listener=self.monitor)
     
     def create_stirrer(self) -> StirrerInterface:
         return SimulatedStirrer()
@@ -28,11 +34,11 @@ class SimulationFactory(DeviceComponentFactory):
         return SimulatedThermometer()
 
 
-def create_simulated_device(config: BaseDeviceConfig = None) -> BaseDevice:
+def create_simulated_device(config: BaseDeviceConfig = None, monitor=None) -> BaseDevice:
     if config is None:
         config = BaseDeviceConfig()
     
-    factory = SimulationFactory()
+    factory = SimulationFactory(monitor=monitor)
     
     pumps = {
         1: factory.create_pump(1),  # Media

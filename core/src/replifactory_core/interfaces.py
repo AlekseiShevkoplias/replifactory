@@ -499,3 +499,17 @@ class ExperimentDeviceInterface(ABC):
             Must indicate missing/failed measurements appropriately.
         """
         pass
+
+
+class DeviceEventListener(ABC):
+    """Interface for listening to device events."""
+    
+    @abstractmethod
+    def on_pump_status_change(self, pump_id: int, active: bool) -> None:
+        """Called when a pump's status changes."""
+        pass
+        
+    @abstractmethod
+    def on_valve_status_change(self, valve_id: int, is_open: bool) -> None:
+        """Called when a valve's status changes."""
+        pass

@@ -51,6 +51,48 @@ def get_device_measurements():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@device_routes.route('/device/pump', methods=['POST'])
+def activate_pump():
+    try:
+        data = request.get_json()
+        pump_id = data.get('pump')
+        volume = data.get('volume')
+
+        if not pump_id or not volume:
+            return jsonify({'error': 'Missing pump id or volume'}), 400
+
+        if not hasattr(current_app, 'device'):
+            return jsonify({'error': 'Device not initialized'}), 500
+
+        # Activate the pump
+        current_app.device.activate_pump(pump_id, volume)
+        
+        return jsonify({'message': f'Pump {pump_id} activated with volume {volume}mL'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@device_routes.route('/device/valve', methods=['POST'])
+def set_valve_state():
+    try:
+        data = request.get_json()
+        valve_id = data.get('valve')
+        state = data.get('state')
+
+        if valve_id is None or state is None:
+            return jsonify({'error': 'Missing valve id or state'}), 400
+
+        if not hasattr(current_app, 'device'):
+            return jsonify({'error': 'Device not initialized'}), 500
+
+        # Set the valve state
+        current_app.device.set_valve_state(valve_id, state)
+        
+        return jsonify({'message': f'Valve {valve_id} set to {"open" if state else "closed"}'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Experiment routes
 experiment_routes = Blueprint('experiment_routes', __name__)
 
@@ -203,22 +245,27 @@ def start_experiment(id):
 def get_active_experiment():
     """Get currently running experiment."""
     try:
+        current_app.logger.info("Fetching active experiment...")
+        
         # Get the most recent running experiment
         experiment = ExperimentModel.query\
             .filter_by(status='running')\
             .order_by(ExperimentModel.created_at.desc())\
             .first()
             
+        response_data = {'experiment': experiment.to_dict() if experiment else None}
+        response = current_app.make_response(response_data)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        
         if experiment:
             current_app.logger.info(f"Found active experiment: ID={experiment.id}, Name={experiment.name}")
         else:
             current_app.logger.info("No active experiments found")
             
-        return jsonify({
-            'experiment': experiment.to_dict() if experiment else None
-        })
+        return response
+            
     except Exception as e:
-        current_app.logger.error(f"Error getting active experiment: {str(e)}")
+        current_app.logger.error(f"Error getting active experiment: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 # Add to_dict method to ExperimentModel

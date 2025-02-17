@@ -207,3 +207,44 @@ class BaseDevice(ExperimentDeviceInterface):
                     'error': str(e)
                 }
         return status
+
+    def activate_pump(self, pump_id: int, volume: float) -> None:
+        """Activate a pump to dispense the specified volume.
+        
+        Args:
+            pump_id: The pump number to activate
+            volume: Volume to pump in mL
+            
+        Raises:
+            ValueError: If pump_id is invalid
+            DeviceError: If pump operation fails
+        """
+        if pump_id not in self._pumps:
+            raise ValueError(f"Invalid pump number: {pump_id}")
+            
+        try:
+            self._pumps[pump_id].pump(volume)
+        except Exception as e:
+            raise DeviceError(f"Pump operation failed: {str(e)}")
+
+    def set_valve_state(self, valve_id: int, state: bool) -> None:
+        """Set the state of a valve.
+        
+        Args:
+            valve_id: The valve number to control
+            state: True to open, False to close
+            
+        Raises:
+            ValueError: If valve_id is invalid
+            DeviceError: If valve operation fails
+        """
+        if not 1 <= valve_id <= self.config.n_vials:
+            raise ValueError(f"Invalid valve number: {valve_id}")
+            
+        try:
+            if state:
+                self._valves.open(valve_id)
+            else:
+                self._valves.close(valve_id)
+        except Exception as e:
+            raise DeviceError(f"Valve operation failed: {str(e)}")

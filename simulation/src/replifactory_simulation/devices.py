@@ -8,7 +8,7 @@ import logging
 from replifactory_core.interfaces import (
     PumpInterface, ValveInterface, StirrerInterface,
     ODSensorInterface, ThermometerInterface, StirrerSpeed,
-    DeviceError
+    DeviceError, DeviceEventListener
 )
 from replifactory_core.parameters import ODParameters
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class SimulatedPump(PumpInterface):    
     pump_number: int
     flow_rate_mlps: float = 1.0
+    event_listener: Optional[DeviceEventListener] = None
     
     def __post_init__(self):
         self._is_pumping = False
@@ -33,6 +34,9 @@ class SimulatedPump(PumpInterface):
         
         try:
             self._is_pumping = True
+            if self.event_listener:
+                self.event_listener.on_pump_status_change(self.pump_number, True)
+            
             duration = abs(volume_ml) / self.flow_rate_mlps
             logger.debug(f"Pump {self.pump_number} pumping for {duration:.2f}s")
             time.sleep(duration)  # Simulate pumping time
@@ -40,6 +44,8 @@ class SimulatedPump(PumpInterface):
             logger.debug(f"Pump {self.pump_number} finished pumping")
         finally:
             self._is_pumping = False
+            if self.event_listener:
+                self.event_listener.on_pump_status_change(self.pump_number, False)
             self._lock.release()
     
     def stop(self) -> None:
@@ -54,10 +60,25 @@ class SimulatedPump(PumpInterface):
     def pumped_volume(self) -> float:
         return self._volume_pumped
 
+    def activate_pump(self, pump_id: int, volume_ul: float):
+        """Activate a pump to dispense the specified volume."""
+        if not 1 <= pump_id <= self.pump_number:
+            raise ValueError(f"Invalid pump number: {pump_id}")
+            
+        # Emit pump active status
+        self.monitor.emit_pump_status(pump_id, True)
+        
+        # Simulate pumping time
+        time.sleep(volume_ul * 0.001)  # 1ms per µL
+        
+        # Emit pump inactive status
+        self.monitor.emit_pump_status(pump_id, False)
+
 
 class SimulatedValves(ValveInterface):
-    def __init__(self):
+    def __init__(self, event_listener: Optional[DeviceEventListener] = None):
         self._states = {i: False for i in range(1, 8)}  # False = closed
+        self.event_listener = event_listener
         logger.debug("Initialized valve states")
     
     def open(self, valve_number: int) -> None:
@@ -65,6 +86,8 @@ class SimulatedValves(ValveInterface):
         if not 1 <= valve_number <= 7:
             raise ValueError(f"Invalid valve number: {valve_number}")
         self._states[valve_number] = True
+        if self.event_listener:
+            self.event_listener.on_valve_status_change(valve_number, True)
         time.sleep(0.1)  # Simulate valve movement
     
     def close(self, valve_number: int) -> None:
@@ -72,6 +95,8 @@ class SimulatedValves(ValveInterface):
         if not 1 <= valve_number <= 7:
             raise ValueError(f"Invalid valve number: {valve_number}")
         self._states[valve_number] = False
+        if self.event_listener:
+            self.event_listener.on_valve_status_change(valve_number, False)
         time.sleep(0.1)  # Simulate valve movement
     
     def is_open(self, valve_number: int) -> bool:

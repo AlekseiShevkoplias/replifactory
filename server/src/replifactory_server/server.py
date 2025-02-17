@@ -1,24 +1,10 @@
-from flask import Flask
-from flask_cors import CORS
-from flask_migrate import Migrate
+from flask import Flask, request
 import logging
-import os
-from pathlib import Path
-from waitress import serve
-from flask_socketio import SocketIO
-
-from replifactory_server.routes import device_routes, experiment_routes, service_routes
-from replifactory_server.database import db
-from replifactory_server.database_models import MeasurementData
-from replifactory_simulation.factory import SimulationFactory
-from replifactory_simulation.growth_model import GrowthModelParameters
-from replifactory_simulation.runner import SimulationRunner
-from replifactory_core.base_device import BaseDeviceConfig
-from replifactory_core.experiment import ExperimentConfig
 import sys
 
-logger = logging.getLogger(__name__)
+from replifactory_server.init import init_app, init_device
 
+logger = logging.getLogger(__name__)
 
 def create_app(config=None):
     # Set up logging
@@ -28,87 +14,21 @@ def create_app(config=None):
     # Create Flask app
     app = Flask(__name__)
     
-    # Initialize SocketIO
-    socketio = SocketIO(app, cors_allowed_origins="*")
-    app.config['socketio'] = socketio
+    # Add CORS preflight handler
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            response = app.make_default_options_response()
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+            return response
     
-    # Ensure instance folder exists
-    instance_path = Path(app.instance_path)
-    instance_path.mkdir(parents=True, exist_ok=True)
+    # Initialize app components
+    app = init_app(app, config)
     
-    # Set database path
-    db_path = instance_path / 'replifactory.db'
-    
-    # Load default configuration
-    default_config = {
-        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}',
-        'SQLALCHEMY_TRACK_MODIFICATIONS': False,
-        'MODE': 'simulation',  # Default to simulation mode
-        'DATABASE_PATH': db_path,
-        'TIME_ACCELERATION': 100.0
-    }
-    
-    # Apply default config
-    app.config.from_mapping(default_config)
-    
-    # Override with provided config if any
-    if config:
-        app.config.update(config)
-    
-    logger.info(f"Database path: {db_path}")
-    logger.info(f"Running in {app.config['MODE']} mode")
-    
-    # Initialize extensions
-    CORS(app)
-    db.init_app(app)
-    Migrate(app, db)
-    
-    # Register blueprints
-    app.register_blueprint(device_routes)
-    app.register_blueprint(experiment_routes)
-    app.register_blueprint(service_routes)
-    
-    # Initialize device and simulation
-    with app.app_context():
-        try:
-            # Create database tables
-            db.create_all()
-            logger.info("Database tables created successfully")
-            
-            # Initialize device based on mode
-            logger.info(f"Current mode: {app.config['MODE']}")
-            if app.config['MODE'] == 'simulation':
-                logger.info("Initializing simulation mode")
-                factory = SimulationFactory()
-                device_config = BaseDeviceConfig()
-                model_params = GrowthModelParameters()
-                
-                # Create device
-                app.device = factory.create_device(device_config, model_params)
-                logger.info("Device created successfully")
-                
-                # Create simulation runner
-                app.simulation_runner = SimulationRunner(
-                    device=app.device,
-                    config=ExperimentConfig(),
-                    model_params=model_params,
-                    time_acceleration=app.config.get('TIME_ACCELERATION', 100.0),
-                    app=app,
-                    db=db,
-                    measurement_model=MeasurementData
-                )
-                logger.info(f"Simulation initialized with {app.config.get('TIME_ACCELERATION', 100.0)}x time acceleration")
-                logger.info(f"Device initialized: {hasattr(app, 'device')}")
-                logger.info(f"Simulation runner initialized: {hasattr(app, 'simulation_runner')}")
-            else:
-                logger.info("Initializing hardware mode")
-                # Initialize hardware device here
-                pass
-                
-        except Exception as e:
-            logger.error(f"Error during initialization: {str(e)}")
-            logger.error(f"Current app config: {app.config}")
-            raise
+    # Initialize device
+    app = init_device(app)
     
     return app
 
@@ -122,7 +42,7 @@ def run_server(host='0.0.0.0', port=5000, mode='simulation', config=None):
     logger.info(f"Time acceleration factor: {app.config.get('TIME_ACCELERATION', 100.0)}x")
     
     socketio = app.config['socketio']
-    socketio.run(app, host=host, port=port)
+    socketio.run(app, host=host, port=port, debug=True, allow_unsafe_werkzeug=True)
 
 def main():
     development = len(sys.argv) > 1 and sys.argv[1] == 'develop'
