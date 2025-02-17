@@ -40,15 +40,13 @@ def create_simulated_device(config: BaseDeviceConfig = None, monitor=None) -> Ba
     
     factory = SimulationFactory(monitor=monitor)
     
-    pumps = {
-        1: factory.create_pump(1),  # Media
-        2: factory.create_pump(2),  # Drug
-        4: factory.create_pump(4)   # Waste
-    }
-    
     return BaseDevice(
         config=config,
-        pumps=pumps,
+        pumps={
+            1: factory.create_pump(1),  # Media
+            2: factory.create_pump(2),  # Drug
+            4: factory.create_pump(4)   # Waste
+        },
         valves=factory.create_valves(),
         stirrer=factory.create_stirrer(),
         od_sensor=factory.create_od_sensor(),

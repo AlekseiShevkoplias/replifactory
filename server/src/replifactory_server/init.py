@@ -8,12 +8,13 @@ from pathlib import Path
 from replifactory_server.routes import device_routes, experiment_routes, service_routes
 from replifactory_server.database import db
 from replifactory_server.database_models import MeasurementData
-from replifactory_simulation.factory import SimulationFactory
+from replifactory_simulation.simulation_factory import SimulationFactory
 from replifactory_simulation.growth_model import GrowthModelParameters
 from replifactory_simulation.runner import SimulationRunner
 from replifactory_core.base_device import BaseDeviceConfig
 from replifactory_core.experiment import ExperimentConfig
 from replifactory_server.monitor import ExperimentMonitor
+from replifactory_simulation.simulation_factory import create_simulated_device
 
 logger = logging.getLogger(__name__)
 
@@ -86,21 +87,17 @@ def init_device(app):
                 logger.info("Initializing simulation mode")
                 # Create monitor for event handling
                 monitor = ExperimentMonitor()
+                app.monitor = monitor  # Store monitor in app context
                 
-                # Create factory with monitor
-                factory = SimulationFactory(event_listener=monitor)
+                # Create device with monitor
                 device_config = BaseDeviceConfig()
-                model_params = GrowthModelParameters()
-                
-                # Create device
-                app.device = factory.create_device(device_config, model_params)
+                app.device = create_simulated_device(config=device_config, monitor=monitor)
                 logger.info("Device created successfully")
                 
                 # Create simulation runner
                 app.simulation_runner = SimulationRunner(
                     device=app.device,
                     config=ExperimentConfig(),
-                    model_params=model_params,
                     time_acceleration=app.config.get('TIME_ACCELERATION', 100.0),
                     app=app,
                     db=db,
