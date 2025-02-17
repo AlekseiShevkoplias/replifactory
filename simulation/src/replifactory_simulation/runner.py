@@ -7,12 +7,12 @@ from typing import Optional
 import time
 from replifactory_core.base_device import BaseDevice
 from replifactory_core.experiment import ExperimentConfig, Experiment
-from replifactory_simulation.factory import SimulationFactory
+from replifactory_simulation.simulation_factory import SimulationFactory
 from replifactory_simulation.growth_model import GrowthModelParameters
 from replifactory_simulation.logging import SimulationLogger, MeasurementLog
 
 
-from .factory import SimulationFactory
+from .simulation_factory import SimulationFactory
 from .growth_model import GrowthModelParameters
 from .logging import SimulationLogger
 import time
