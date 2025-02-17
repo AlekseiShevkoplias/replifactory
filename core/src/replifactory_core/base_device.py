@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 import numpy as np 
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .interfaces import (
     ExperimentDeviceInterface,
@@ -80,43 +83,43 @@ class BaseDevice(ExperimentDeviceInterface):
             raise DeviceError(f"Missing required pumps: {required_pumps - set(self._pumps)}")
 
     def measure_vial(self, vial: int) -> VialMeasurements:
-        """Get all measurements for a specific vial.
-        
-        Coordinates multiple measurements while handling stirrer speed.
-        
-        Args:
-            vial: Vial number (1-7)
-            
-        Returns:
-            VialMeasurements with all available data
-            
-        Raises:
-            ValueError: If vial number invalid
-            DeviceError: If critical measurements fail
-        """
+        logger.debug(f"Starting measurement for vial {vial}")
         if not 1 <= vial <= self.config.n_vials:
             raise ValueError(f"Invalid vial number: {vial}")
             
         try:
             # Set stirrer to measurement speed
+            logger.debug("Setting stirrer to low speed")
             self._stirrer.set_speed(vial, "low")
             
             # Take measurements
+            logger.debug("Taking OD measurement")
             od, signal = self._od_sensor.measure_od(vial)
+            logger.debug(f"OD measurement complete: {od:.3f}")
+            
+            logger.debug("Taking temperature measurement")
             temp = self._thermometer.measure_temperature()['vials']
+            logger.debug(f"Temperature measurement complete: {temp:.1f}")
+            
+            logger.debug("Measuring RPM")
             rpm = self._stirrer.measure_rpm(vial)
+            logger.debug(f"RPM measurement complete: {rpm}")
             
             # Restore stirrer speed
+            logger.debug("Restoring stirrer to high speed")
             self._stirrer.set_speed(vial, "high")
             
-            return VialMeasurements(
+            measurements = VialMeasurements(
                 od=od,
                 temperature=temp,
                 rpm=rpm
             )
+            logger.debug(f"Measurement complete for vial {vial}: {measurements}")
+            return measurements
             
         except Exception as e:
             # Ensure stirrer restored on error
+            logger.error(f"Error during measurement: {str(e)}")
             self._stirrer.set_speed(vial, "high")
             raise DeviceError(f"Measurement failed: {str(e)}")
 

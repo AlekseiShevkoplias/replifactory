@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Replifactory Monitor</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .status-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        .status-connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-connecting {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .vials-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .vial-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .vial-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .vial-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .measurement {
+            margin: 5px 0;
+            color: #34495e;
+        }
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Replifactory Monitor</h1>
+            <div id="connection-status" class="status-indicator status-connecting">
+                Connecting to server...
+            </div>
+        </div>
+        <div id="no-data" class="no-data">Waiting for experiment data...</div>
+        <div class="vials-container" id="vials"></div>
+        <div class="charts-container">
+            <div class="chart-card">
+                <canvas id="odChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io('http://localhost:5000');
+        const statusElement = document.getElementById('connection-status');
+        const noDataElement = document.getElementById('no-data');
+        
+        // Initialize data structures
+        const vialData = {};
+        const timeSeriesData = {};
+        let odChart;
+        
+        // Add function to get active experiment
+        async function getActiveExperiment() {
+            try {
+                const response = await fetch('http://localhost:5000/experiments/active');
+                const data = await response.json();
+                if (data.experiment) {
+                    console.log('Active experiment:', data.experiment);
+                    noDataElement.textContent = `Monitoring experiment ${data.experiment.id}: ${data.experiment.name}`;
+                } else {
+                    noDataElement.textContent = 'No active experiment';
+                }
+            } catch (error) {
+                console.error('Error fetching active experiment:', error);
+                noDataElement.textContent = 'Error fetching experiment info';
+            }
+        }
+        
+        // Call on page load and socket reconnect
+        document.addEventListener('DOMContentLoaded', getActiveExperiment);
+        socket.on('connect', getActiveExperiment);
+        
+        // Initialize Chart.js
+        function initializeChart() {
+            const ctx = document.getElementById('odChart').getContext('2d');
+            odChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    animation: {
+                        duration: 750,
+                        easing: 'easeInOutQuart'
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'OD Measurements Over Time',
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                displayFormats: {
+                                    minute: 'HH:mm:ss'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'OD'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'nearest'
+                    }
+                }
+            });
+        }
+        
+        // Update vial display
+        function updateVialDisplay(data) {
+            const vialId = data.vial;
+            vialData[vialId] = data;
+            
+            // Hide no-data message if we have data
+            noDataElement.style.display = 'none';
+            
+            // Update or create vial card
+            let vialElement = document.getElementById(`vial-${vialId}`);
+            if (!vialElement) {
+                vialElement = document.createElement('div');
+                vialElement.id = `vial-${vialId}`;
+                vialElement.className = 'vial-card';
+                document.getElementById('vials').appendChild(vialElement);
+            }
+            
+            vialElement.innerHTML = `
+                <div class="vial-title">Vial ${vialId}</div>
+                <div class="measurement">OD: ${data.od.toFixed(3)}</div>
+                <div class="measurement">Temperature: ${data.temperature.toFixed(1)}°C</div>
+                ${data.drug_concentration !== null ? 
+                    `<div class="measurement">Drug Concentration: ${data.drug_concentration.toFixed(2)}</div>` : ''}
+                ${data.growth_rate !== null ? 
+                    `<div class="measurement">Growth Rate: ${data.growth_rate.toFixed(3)}/hr</div>` : ''}
+                <div class="measurement">Last Update: ${new Date(data.timestamp).toLocaleTimeString()}</div>
+            `;
+            
+            // Update time series data
+            if (!timeSeriesData[vialId]) {
+                timeSeriesData[vialId] = [];
+                // Add new dataset to chart
+                odChart.data.datasets.push({
+                    label: `Vial ${vialId}`,
+                    data: timeSeriesData[vialId],
+                    borderColor: `hsl(${vialId * 137.5}, 70%, 50%)`,
+                    backgroundColor: `hsla(${vialId * 137.5}, 70%, 50%, 0.1)`,
+                    fill: false,
+                    tension: 0.4
+                });
+            }
+            
+            // Add new data point
+            timeSeriesData[vialId].push({
+                x: new Date(data.timestamp),
+                y: data.od
+            });
+            
+            // Limit the number of points to prevent performance issues
+            const MAX_POINTS = 100;
+            if (timeSeriesData[vialId].length > MAX_POINTS) {
+                timeSeriesData[vialId] = timeSeriesData[vialId].slice(-MAX_POINTS);
+            }
+            
+            // Update chart
+            odChart.update('none'); // Use 'none' to disable animation for smoother updates
+        }
+        
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            statusElement.className = 'status-indicator status-connected';
+            statusElement.textContent = 'Connected to server';
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            statusElement.className = 'status-indicator status-disconnected';
+            statusElement.textContent = 'Disconnected from server';
+        });
+        
+        socket.on('connect_error', () => {
+            console.log('Connection error');
+            statusElement.className = 'status-indicator status-disconnected';
+            statusElement.textContent = 'Connection error - retrying...';
+        });
+        
+        socket.on('vial_update', (data) => {
+            updateVialDisplay(data);
+        });
+        
+        // Initialize chart when page loads
+        document.addEventListener('DOMContentLoaded', initializeChart);
+    </script>
+</body>
+</html> 

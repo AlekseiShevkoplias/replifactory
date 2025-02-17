@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "replifactory"
+version = "0.1.0"
+dependencies = [
+    "numpy",
+    "flask",
+    "flask-sqlalchemy",
+    "flask-cors",
+    "flask-migrate",
+    "waitress"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "core/src/replifactory_core",
+    "simulation/src/replifactory_simulation", 
+    "server/src/replifactory_server"
+]

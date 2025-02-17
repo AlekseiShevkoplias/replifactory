@@ -176,3 +176,15 @@ misc/
 old_version/
 simulation_logs/
 context.txt
+
+# Flask instance folder
+instance/
+
+# Database files
+*.db
+*.db-journal
+data/
+
+# Docker files
+*.log
+*.log.*
