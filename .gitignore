@@ -188,3 +188,7 @@ data/
 # Docker files
 *.log
 *.log.*
+
+# Images etc
+*.svg
+*.png

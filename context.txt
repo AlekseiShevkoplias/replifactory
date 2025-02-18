@@ -25,6 +25,7 @@ File Tree:
 └── server/pyproject.toml
 └── server/requirements.txt
 └── server/src/replifactory_server/.gitkeep
+└── server/src/replifactory_server/__init__.py
 └── server/src/replifactory_server/create_experiment.py
 └── server/src/replifactory_server/database.py
 └── server/src/replifactory_server/database_models.py
@@ -248,6 +249,11 @@ data/
 # Docker files
 *.log
 *.log.*
+
+# Images etc
+*.svg
+*.png
+
 
 --- README.md ---
 # replifactory
@@ -1986,6 +1992,9 @@ python-socketio>=5.7.0
 eventlet>=0.33.0 
 
 --- server/src/replifactory_server/.gitkeep ---
+
+
+--- server/src/replifactory_server/__init__.py ---
 
 
 --- server/src/replifactory_server/create_experiment.py ---
