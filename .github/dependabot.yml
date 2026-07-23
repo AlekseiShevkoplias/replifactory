@@ -1,0 +1,56 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: "pip"
+    directory: "/core"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: "pip"
+    directory: "/hardware"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: "pip"
+    directory: "/server"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: "pip"
+    directory: "/simulation"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: "pip"
+    directory: "/ui"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
